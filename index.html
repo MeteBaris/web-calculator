@@ -54,7 +54,7 @@
 
     <div class="screen">
       <div id="expr" class="expression" aria-live="polite"></div>
-    <!--  <div id="display" class="display" aria-live="polite" aria-atomic="true">0</div>  -->
+      <div id="display" class="display" aria-live="polite" aria-atomic="true">0</div>
     </div>
 
     <div class="keys">
@@ -84,22 +84,22 @@
     </div>
 
     <div class="footer">
-      Klavye kısayolları: <span class="kbd">0-9</span> <span class="kbd">.</span> <span class="kbd">+</span> <span class="kbd">-</span> <span class="kbd">*</span> <span class="kbd">/</span> <span class="kbd">Enter</span> <span class="kbd">Backspace</span> <span class="kbd">C</span>
+      Keyboard shortcuts: <span class="kbd">0-9</span> <span class="kbd">.</span> <span class="kbd">+</span> <span class="kbd">-</span> <span class="kbd">*</span> <span class="kbd">/</span> <span class="kbd">Enter</span> <span class="kbd">Backspace</span> <span class="kbd">C</span>
     </div>
   </main>
 
   <script>
-    // Basit dört işlem hesap makinesi – durum makinesi yaklaşımı
+    // Simple four-function calculator – state machine approach
     const displayEl = document.getElementById('display');
     const exprEl = document.getElementById('expr');
 
-    let current = '0';         // string olarak aktif giriş
-    let acc = null;            // birikmiş değer (number)
-    let op = null;             // bekleyen işlem: '+', '-', '*', '/'
-    let overwrite = true;      // rakam girildiğinde ekranı sıfırla mı?
+    let current = '0';         // active input as string
+    let acc = null;            // accumulated value (number)
+    let op = null;             // pending operation: '+', '-', '*', '/'
+    let overwrite = true;      // reset display on digit entry?
 
     const format = (val) => {
-      // Büyük sayılarda bilimsel gösterim yerine sınırlı uzunluk
+      // Limited length instead of scientific notation for large numbers
       if (!isFinite(val)) return '∞';
       const str = Number(val).toString();
       if (str.length <= 14) return str;
@@ -189,7 +189,7 @@
       setDisplay(current);
     }
 
-    // Click olayları
+    // Click events
     document.querySelectorAll('button.key').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         if (btn.dataset.num !== undefined){ pushDigit(btn.dataset.num); return; }
@@ -203,7 +203,7 @@
       });
     });
 
-    // Klavye desteği
+    // Keyboard support
     window.addEventListener('keydown', (e)=>{
       const { key } = e;
       if (/^[0-9]$/.test(key)) { pushDigit(key); return; }
@@ -214,7 +214,7 @@
       if (key.toLowerCase() === 'c') { clearAll(); return; }
     });
 
-    // İlk durum
+    // Initial state
     setDisplay('0');
   </script>
 </body>
