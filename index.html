@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Caltulator - 4 operations</title>
+  <meta name="description" content="Very basic calculator for 4 operations" />
+  <style>
+    :root{
+      --bg:#0f172a;          /* slate-900 */
+      --panel:#111827;       /* gray-900 */
+      --key:#1f2937;         /* gray-800 */
+      --key-acc:#2563eb;     /* blue-600 */
+      --key-op:#334155;      /* slate-700 */
+      --text:#e5e7eb;        /* gray-200 */
+      --muted:#94a3b8;       /* slate-400 */
+      --danger:#ef4444;      /* red-500 */
+      --ok:#22c55e;          /* green-500 */
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; display:grid; place-items:center; background:radial-gradient(1200px 800px at 20% 10%, #111827 0%, #0b1223 40%, var(--bg) 100% );
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Noto Sans, "Apple Color Emoji","Segoe UI Emoji";
+      color:var(--text);
+    }
+    .calc{ width:min(420px, 92vw); background:linear-gradient(180deg, #0b1223 0%, #0a0f1e 100%); border-radius:var(--radius); box-shadow:var(--shadow); border:1px solid #1e293b; overflow:hidden}
+    .header{display:flex; align-items:center; justify-content:space-between; padding:14px 16px; border-bottom:1px solid #1f2937; background:#0b1324}
+    .header h1{font-size:14px; margin:0; letter-spacing:.4px; color:var(--muted); font-weight:600}
+    .screen{ padding:22px 18px 10px; background:conic-gradient(from 120deg at 80% 10%, rgba(59,130,246,.07), rgba(56,189,248,.05), rgba(45,212,191,.05), transparent 35%) }
+    .expression{ height:24px; text-align:right; color:var(--muted); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+    .display{ text-align:right; font-variant-numeric: tabular-nums; font-size:42px; line-height:1.25; letter-spacing:1px; min-height:56px; margin-top:6px }
+    .keys{ display:grid; gap:10px; grid-template-columns: repeat(4, 1fr); padding:14px; background:linear-gradient(180deg, #0e152a, #0b1223)}
+    button.key{ -webkit-tap-highlight-color: transparent; user-select:none; border:none; outline:none; padding:16px 0; border-radius:14px; font-size:18px; color:var(--text); background:var(--key); cursor:pointer; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04), 0 6px 14px rgba(0,0,0,.35); transition: transform .04s ease, filter .2s ease, background .2s ease }
+    button.key:active{ transform: translateY(1px) scale(.995) }
+    .op{ background: var(--key-op) }
+    .acc{ background: var(--key-acc) }
+    .wide{ grid-column: span 2 }
+    .danger{ background: #3a1d1d }
+    .muted{ background: #171e2b; color: var(--muted) }
+    .footer{ padding: 6px 14px 14px; color: var(--muted); font-size:12px; text-align:center }
+    .kbd{ display:inline-block; padding:2px 6px; border:1px solid #334155; border-bottom-width:2px; border-radius:6px; margin:0 2px; font-size:11px; color:#cbd5e1 }
+    @media (max-width:360px){ .display{font-size:36px} }
+  </style>
+</head>
+<body>
+  <main class="calc" role="application" aria-label="4 operations Calculator">
+    <div class="header">
+      <h1>Calculator</h1>
+      <div aria-hidden="true" style="opacity:.6">HTML • CSS • JS</div>
+    </div>
+
+    <div class="screen">
+      <div id="expr" class="expression" aria-live="polite"></div>
+      <div id="display" class="display" aria-live="polite" aria-atomic="true">0</div>
+    </div>
+
+    <div class="keys">
+      <button class="key danger" data-action="clear" title="Clear (C)">C</button>
+      <button class="key muted" data-action="back" title="Back (Backspace)">⌫</button>
+      <button class="key muted" data-action="invert" title="Invert (±)">±</button>
+      <button class="key op" data-op="/" title="divide (/)">÷</button>
+
+      <button class="key" data-num="7">7</button>
+      <button class="key" data-num="8">8</button>
+      <button class="key" data-num="9">9</button>
+      <button class="key op" data-op="*" title="Multiplication (*)">×</button>
+
+      <button class="key" data-num="4">4</button>
+      <button class="key" data-num="5">5</button>
+      <button class="key" data-num="6">6</button>
+      <button class="key op" data-op="-" title="Subtraction (-)">−</button>
+
+      <button class="key" data-num="1">1</button>
+      <button class="key" data-num="2">2</button>
+      <button class="key" data-num="3">3</button>
+      <button class="key op" data-op="+" title="Addition (+)">+</button>
+
+      <button class="key wide" data-num="0">0</button>
+      <button class="key" data-dot=".">.</button>
+      <button class="key acc" data-action="equals" title="Eşittir (=)">=</button>
+    </div>
+
+    <div class="footer">
+      Klavye kısayolları: <span class="kbd">0-9</span> <span class="kbd">.</span> <span class="kbd">+</span> <span class="kbd">-</span> <span class="kbd">*</span> <span class="kbd">/</span> <span class="kbd">Enter</span> <span class="kbd">Backspace</span> <span class="kbd">C</span>
+    </div>
+  </main>
+
+  <script>
+    // Basit dört işlem hesap makinesi – durum makinesi yaklaşımı
+    const displayEl = document.getElementById('display');
+    const exprEl = document.getElementById('expr');
+
+    let current = '0';         // string olarak aktif giriş
+    let acc = null;            // birikmiş değer (number)
+    let op = null;             // bekleyen işlem: '+', '-', '*', '/'
+    let overwrite = true;      // rakam girildiğinde ekranı sıfırla mı?
+
+    const format = (val) => {
+      // Büyük sayılarda bilimsel gösterim yerine sınırlı uzunluk
+      if (!isFinite(val)) return '∞';
+      const str = Number(val).toString();
+      if (str.length <= 14) return str;
+      return Number(val).toExponential(8).replace('+','');
+    }
+
+    function setDisplay(value){
+      displayEl.textContent = value;
+    }
+
+    function pushDigit(d){
+      if (overwrite || current === '0') {
+        current = String(d);
+        overwrite = false;
+      } else {
+        current += String(d);
+      }
+      setDisplay(current);
+    }
+
+    function pushDot(){
+      if (overwrite){
+        current = '0.';
+        overwrite = false;
+      } else if (!current.includes('.')){
+        current += '.';
+      }
+      setDisplay(current);
+    }
+
+    function setOp(nextOp){
+      const x = parseFloat(current);
+      if (acc === null){
+        acc = x;
+      } else if (!overwrite){
+        acc = compute(acc, x, op || nextOp);
+        setDisplay(format(acc));
+      }
+      op = nextOp;
+      exprEl.textContent = `${format(acc)} ${symbol(op)}`;
+      overwrite = true;
+    }
+
+    function symbol(o){
+      return ({'+':'+','-':'−','*':'×','/':'÷'})[o] || o;
+    }
+
+    function compute(a,b,o){
+      switch(o){
+        case '+': return a + b;
+        case '-': return a - b;
+        case '*': return a * b;
+        case '/': return b === 0 ? Infinity : a / b;
+        default: return b;
+      }
+    }
+
+    function equals(){
+      const x = parseFloat(current);
+      if (acc === null){
+        setDisplay(current);
+        return;
+      }
+      const result = compute(acc, x, op);
+      setDisplay(format(result));
+      exprEl.textContent = `${format(acc)} ${symbol(op)} ${format(x)} =`;
+      current = String(result);
+      acc = null; op = null; overwrite = true;
+    }
+
+    function clearAll(){
+      current = '0'; acc = null; op = null; overwrite = true;
+      setDisplay('0'); exprEl.textContent = '';
+    }
+
+    function backspace(){
+      if (overwrite) return; 
+      if (current.length > 1){ current = current.slice(0,-1); }
+      else { current = '0'; overwrite = true; }
+      setDisplay(current);
+    }
+
+    function invert(){
+      if (current === '0') return;
+      if (current.startsWith('-')) current = current.slice(1);
+      else current = '-' + current;
+      setDisplay(current);
+    }
+
+    // Click olayları
+    document.querySelectorAll('button.key').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if (btn.dataset.num !== undefined){ pushDigit(btn.dataset.num); return; }
+        if (btn.dataset.dot !== undefined){ pushDot(); return; }
+        if (btn.dataset.op){ setOp(btn.dataset.op); return; }
+        const act = btn.dataset.action;
+        if (act === 'equals') equals();
+        if (act === 'clear') clearAll();
+        if (act === 'back') backspace();
+        if (act === 'invert') invert();
+      });
+    });
+
+    // Klavye desteği
+    window.addEventListener('keydown', (e)=>{
+      const { key } = e;
+      if (/^[0-9]$/.test(key)) { pushDigit(key); return; }
+      if (key === '.') { pushDot(); return; }
+      if (key === '+' || key === '-' || key === '*' || key === '/') { setOp(key); return; }
+      if (key === 'Enter' || key === '='){ e.preventDefault(); equals(); return; }
+      if (key === 'Backspace'){ backspace(); return; }
+      if (key.toLowerCase() === 'c') { clearAll(); return; }
+    });
+
+    // İlk durum
+    setDisplay('0');
+  </script>
+</body>
+</html>
