@@ -90,6 +90,7 @@
 
   <script>
     // Simple four-function calculator – state machine approach
+    const MAX_DIGITS = 16;
     const displayEl = document.getElementById('display');
     const exprEl = document.getElementById('expr');
 
@@ -102,16 +103,24 @@
       // Limited length instead of scientific notation for large numbers
       if (!isFinite(val)) return '∞';
       const str = Number(val).toString();
-      if (str.length <= 14) return str;
+      if (str.length <= 16) return str;
       return Number(val).toExponential(8).replace('+','');
     }
 
     function setDisplay(value){
-      displayEl.textContent = value;
+      let num = parseFloat(value);
+      if(Math.abs(num) >= 9999999999999999){
+        num = 9999999999999999 * Math.sign(num);
+      }
+      displayEl.textContent = num.toString();
     }
 
     function pushDigit(d){
-      if (overwrite || current === '0') {
+      //
+      const digitCount = current.replace(/^-?/,'').replace('.','').length;
+      if(!overwrite && digitCount >= MAX_DIGITS) 
+        return;
+      if (overwrite||current === '0'){
         current = String(d);
         overwrite = false;
       } else {
