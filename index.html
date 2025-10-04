@@ -110,7 +110,7 @@
     function setDisplay(value){
       let num = parseFloat(value);
       if(Math.abs(num) >= 9999999999999999){
-        num = 9999999999999999 * Math.sign(num);
+        num = 9999999999999999;
       }
       displayEl.textContent = num.toString();
     }
