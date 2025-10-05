@@ -43,6 +43,16 @@
     .footer{ padding: 6px 14px 14px; color: var(--muted); font-size:12px; text-align:center }
     .kbd{ display:inline-block; padding:2px 6px; border:1px solid #334155; border-bottom-width:2px; border-radius:6px; margin:0 2px; font-size:11px; color:#cbd5e1 }
     @media (max-width:360px){ .display{font-size:36px} }
+    @media (hover: hover){
+      button.key:hover{
+        transform: translateY(-1px) scale(1.06);
+        filter: brightness(1.15) saturate(1.05);
+      }
+      /* İstersen özel tuşlara farklı vurgu: */
+      .op:hover  { filter: brightness(1.2) saturate(1.1); }
+      .acc:hover { filter: brightness(1.2); box-shadow: 0 0 0 1px rgba(255,255,255,.08), 0 10px 22px rgba(37,99,235,.35); }
+      .danger:hover { filter: brightness(1.1) saturate(1.2); }
+    }
   </style>
 </head>
 <body>
@@ -89,142 +99,162 @@
   </main>
 
   <script>
-    // Simple four-function calculator – state machine approach
-    const MAX_DIGITS = 16;
-    const displayEl = document.getElementById('display');
-    const exprEl = document.getElementById('expr');
+  // Simple four-function calculator – state machine approach
+  const MAX_DIGITS = 16;
+  const CAP_STR = '9999999999999999';
+  const CAP = 1e16; // ekranda 16 basamak üstüne çıkılmayacak eşik
+  const displayEl = document.getElementById('display');
+  const exprEl = document.getElementById('expr');
 
-    let current = '0';         // active input as string
-    let acc = null;            // accumulated value (number)
-    let op = null;             // pending operation: '+', '-', '*', '/'
-    let overwrite = true;      // reset display on digit entry?
+  let current = '0';         // active input as string
+  let acc = null;            // accumulated value (number)
+  let op = null;             // pending operation: '+', '-', '*', '/'
+  let overwrite = true;      // reset display on digit entry?
 
-    const format = (val) => {
-      // Limited length instead of scientific notation for large numbers
-      if (!isFinite(val)) return '∞';
-      const str = Number(val).toString();
-      if (str.length <= 16) return str;
-      return Number(val).toExponential(8).replace('+','');
+  // --- Görünüm için tek bir biçimlendirici ---
+  function clampForDisplay(value) {
+    // Infinity ve NaN kontrolü
+    const n = Number(value);
+    if (!isFinite(n)) return '∞';
+
+    // İşaret ayrıştır
+    let s = String(value);
+    let sign = '';
+    if (s.startsWith('-')) { sign = '-'; s = s.slice(1); }
+
+    // Exponential geldiyse sayıya çevir (sadece büyüklük kontrolü için)
+    // 1e16 ve üstü -> kap
+    if (Math.abs(n) >= CAP) return sign + CAP_STR;
+
+    // Normal sayılar: toplam basamak 16’yı geçmesin
+    // (nokta hariç, baştaki 0’lar normalize edilerek)
+    let [intPart, fracPart = ''] = s.split('.');
+
+    // baştaki fazla 0'ları sadeleştir (tamamen 0 ise '0' kalsın)
+    intPart = intPart.replace(/^0+(?=\d)/, '');
+    if (intPart === '') intPart = '0';
+
+    // izin verilen ondalık basamak sayısı
+    const allowedFrac = Math.max(0, MAX_DIGITS - intPart.replace(/^-?/, '').length);
+    fracPart = fracPart.slice(0, allowedFrac).replace(/0+$/, ''); // sondaki 0'ları at
+
+    return sign + intPart + (fracPart ? '.' + fracPart : '');
+  }
+
+  function setDisplay(value) {
+    const out = clampForDisplay(value);
+    displayEl.textContent = out;
+  }
+
+  function pushDigit(d) {
+    // mevcut digit sayısı (işaret ve nokta hariç)
+    const digitCount = current.replace(/^-?/, '').replace('.', '').length;
+    if (!overwrite && digitCount >= MAX_DIGITS) return;
+
+    if (overwrite || current === '0') {
+      current = String(d);
+      overwrite = false;
+    } else {
+      current += String(d);
     }
+    setDisplay(current);
+  }
 
-    function setDisplay(value){
-      let num = parseFloat(value);
-      if(Math.abs(num) >= 9999999999999999){
-        num = 9999999999999999;
-      }
-      displayEl.textContent = num;
+  function pushDot() {
+    if (overwrite) {
+      current = '0.';
+      overwrite = false;
+    } else if (!current.includes('.')) {
+      current += '.';
     }
+    setDisplay(current);
+  }
 
-    function pushDigit(d){
-      //
-      const digitCount = current.replace(/^-?/,'').replace('.','').length;
-      if(!overwrite && digitCount >= MAX_DIGITS) 
-        return;
-      if (overwrite||current === '0'){
-        current = String(d);
-        overwrite = false;
-      } else {
-        current += String(d);
-      }
+  function symbol(o) {
+    return ({ '+': '+', '-': '−', '*': '×', '/': '÷' })[o] || o;
+  }
+
+  function compute(a, b, o) {
+    switch (o) {
+      case '+': return a + b;
+      case '-': return a - b;
+      case '*': return a * b;
+      case '/': return b === 0 ? Infinity : a / b;
+      default: return b;
+    }
+  }
+
+  function setOp(nextOp) {
+    const x = parseFloat(current);
+    if (acc === null) {
+      acc = x;
+    } else if (!overwrite) {
+      acc = compute(acc, x, op || nextOp);
+      setDisplay(acc);
+    }
+    op = nextOp;
+    exprEl.textContent = `${clampForDisplay(acc)} ${symbol(op)}`;
+    overwrite = true;
+  }
+
+  function equals() {
+    const x = parseFloat(current);
+    if (acc === null) {
       setDisplay(current);
+      return;
     }
+    const result = compute(acc, x, op);
+    setDisplay(result);
+    exprEl.textContent = `${clampForDisplay(acc)} ${symbol(op)} ${clampForDisplay(x)} =`;
+    current = clampForDisplay(result); // ekranla senkron kal
+    acc = null; op = null; overwrite = true;
+  }
 
-    function pushDot(){
-      if (overwrite){
-        current = '0.';
-        overwrite = false;
-      } else if (!current.includes('.')){
-        current += '.';
-      }
-      setDisplay(current);
-    }
+  function clearAll() {
+    current = '0'; acc = null; op = null; overwrite = true;
+    setDisplay('0'); exprEl.textContent = '';
+  }
 
-    function setOp(nextOp){
-      const x = parseFloat(current);
-      if (acc === null){
-        acc = x;
-      } else if (!overwrite){
-        acc = compute(acc, x, op || nextOp);
-        setDisplay(format(acc));
-      }
-      op = nextOp;
-      exprEl.textContent = `${format(acc)} ${symbol(op)}`;
-      overwrite = true;
-    }
+  function backspace() {
+    if (overwrite) return;
+    if (current.length > 1) { current = current.slice(0, -1); }
+    else { current = '0'; overwrite = true; }
+    setDisplay(current);
+  }
 
-    function symbol(o){
-      return ({'+':'+','-':'−','*':'×','/':'÷'})[o] || o;
-    }
+  function invert() {
+    if (current === '0') return;
+    current = current.startsWith('-') ? current.slice(1) : '-' + current;
+    setDisplay(current);
+  }
 
-    function compute(a,b,o){
-      switch(o){
-        case '+': return a + b;
-        case '-': return a - b;
-        case '*': return a * b;
-        case '/': return b === 0 ? Infinity : a / b;
-        default: return b;
-      }
-    }
-
-    function equals(){
-      const x = parseFloat(current);
-      if (acc === null){
-        setDisplay(current);
-        return;
-      }
-      const result = compute(acc, x, op);
-      setDisplay(format(result));
-      exprEl.textContent = `${format(acc)} ${symbol(op)} ${format(x)} =`;
-      current = String(result);
-      acc = null; op = null; overwrite = true;
-    }
-
-    function clearAll(){
-      current = '0'; acc = null; op = null; overwrite = true;
-      setDisplay('0'); exprEl.textContent = '';
-    }
-
-    function backspace(){
-      if (overwrite) return; 
-      if (current.length > 1){ current = current.slice(0,-1); }
-      else { current = '0'; overwrite = true; }
-      setDisplay(current);
-    }
-
-    function invert(){
-      if (current === '0') return;
-      if (current.startsWith('-')) current = current.slice(1);
-      else current = '-' + current;
-      setDisplay(current);
-    }
-
-    // Click events
-    document.querySelectorAll('button.key').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        if (btn.dataset.num !== undefined){ pushDigit(btn.dataset.num); return; }
-        if (btn.dataset.dot !== undefined){ pushDot(); return; }
-        if (btn.dataset.op){ setOp(btn.dataset.op); return; }
-        const act = btn.dataset.action;
-        if (act === 'equals') equals();
-        if (act === 'clear') clearAll();
-        if (act === 'back') backspace();
-        if (act === 'invert') invert();
-      });
+  // Click events
+  document.querySelectorAll('button.key').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.num !== undefined) { pushDigit(btn.dataset.num); return; }
+      if (btn.dataset.dot !== undefined) { pushDot(); return; }
+      if (btn.dataset.op) { setOp(btn.dataset.op); return; }
+      const act = btn.dataset.action;
+      if (act === 'equals') equals();
+      if (act === 'clear') clearAll();
+      if (act === 'back') backspace();
+      if (act === 'invert') invert();
     });
+  });
 
-    // Keyboard support
-    window.addEventListener('keydown', (e)=>{
-      const { key } = e;
-      if (/^[0-9]$/.test(key)) { pushDigit(key); return; }
-      if (key === '.') { pushDot(); return; }
-      if (key === '+' || key === '-' || key === '*' || key === '/') { setOp(key); return; }
-      if (key === 'Enter' || key === '='){ e.preventDefault(); equals(); return; }
-      if (key === 'Backspace'){ backspace(); return; }
-      if (key.toLowerCase() === 'c') { clearAll(); return; }
-    });
+  // Keyboard support
+  window.addEventListener('keydown', (e) => {
+    const { key } = e;
+    if (/^[0-9]$/.test(key)) { pushDigit(key); return; }
+    if (key === '.') { pushDot(); return; }
+    if (key === '+' || key === '-' || key === '*' || key === '/') { setOp(key); return; }
+    if (key === 'Enter' || key === '=') { e.preventDefault(); equals(); return; }
+    if (key === 'Backspace') { backspace(); return; }
+    if (key.toLowerCase() === 'c') { clearAll(); return; }
+  });
 
-    // Initial state
-    setDisplay('0');
-  </script>
+  // Initial state
+  setDisplay('0');
+</script>
 </body>
 </html>
